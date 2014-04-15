@@ -1,0 +1,8 @@
+/*!important use em for all dimensions!*/
+@charset "utf-8";
+@import "aJazz.css";
+
+.page{
+    position: absolute;
+    left: 0; right: 0; top: 0; bottom: 0;
+}

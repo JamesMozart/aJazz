@@ -1,0 +1,1 @@
+coffee -c -b -w views/ controllers/ apps/ routes/ models/

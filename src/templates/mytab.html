@@ -1,0 +1,14 @@
+<h1>tabs</h1>
+<a class="role-add">add tab</a>
+<a class="role-move">move tab</a>
+<a class="role-remove-all">remove all tabs</a>
+<div class="role-tab-head">
+<% for(var i=0;i<view.tabs.length;i++){
+	var tab=view.tabs[i]; %>
+	<span data-id="<%= tab.id %>" class="<%if(i===view.currTabIndex){%><%= view.onClass %><%}%>">
+		<%= tab.title %>
+		<a class="role-delete">delete</a>
+	</span>
+<% } %>
+</div>
+<div _view="tab-body"></div>

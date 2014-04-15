@@ -1,0 +1,1 @@
+coffee -w -c -b -j src/lib/aJazz.js coffee/lib/cmd.header.coffee coffee/lib/aJazz.util.coffee coffee/lib/aJazz.Map.coffee coffee/lib/aJazz.Config.coffee coffee/lib/aJazz.EventDispatcher.coffee coffee/lib/aJazz.Controller.coffee coffee/lib/aJazz.View.coffee coffee/lib/aJazz.App.coffee coffee/lib/cmd.footer.coffee

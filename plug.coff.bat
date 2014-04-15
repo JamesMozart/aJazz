@@ -1,0 +1,1 @@
+coffee -c -b -j src/lib/plugins.js coffee/plugins/

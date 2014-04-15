@@ -1,0 +1,1 @@
+aJazz = window.aJazz = {}
