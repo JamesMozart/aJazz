@@ -755,6 +755,14 @@ aJazz.Controller = (function(_super) {
 
 
   /*
+  	ajax timeout
+  	@type {Number}
+   */
+
+  Controller.prototype.timeout = 0;
+
+
+  /*
   	the unique controller debugger for debugging
   	@type {aJazz.ControllerDebugger}
    */
@@ -809,7 +817,8 @@ aJazz.Controller = (function(_super) {
               type: _this.dummyEnabled ? "get" : type,
               headers: util.getFuncOrValue(_this.headers, [request], _this),
               data: request,
-              dataType: _this.dataType
+              dataType: _this.dataType,
+              timeout: timeout
             }).done(function(response) {
               _this._success(response, eventAffix);
             }).fail(function(xhr, status) {
@@ -1196,7 +1205,7 @@ aJazz.config.set({
   	@return
    */
   "timeout": function(timeout) {
-    return $.ajaxSettings.timeout = timeout;
+    return aJazz.Controller.prototype.timeout = timeout;
   },
 
   /*
@@ -1281,7 +1290,6 @@ aJazz.View = (function(_super) {
     this._viewMap = new CacheMap();
     this._controllerMap = new CacheMap(this.options.controllers);
     delete this.options.controllers;
-    this._$cache = new CacheMap();
     this._inserted = false;
     this._domEvents = {};
     delete this.options.controllers;
@@ -1467,6 +1475,10 @@ aJazz.View = (function(_super) {
    */
 
   View.prototype.render = function() {
+    if (this._inserted) {
+      this.removeEvent();
+      this.removeView();
+    }
     this.$ele.html(this.template({
       view: this
     }));
@@ -1551,21 +1563,13 @@ aJazz.View = (function(_super) {
 
 
   /*
-  	 * dom selection inside the view with caching each selection
+  	 * dom selection inside the view
   	 * @param  {[type]}		selector 	css selector
-  	 * @param  {Boolean}	refresh 	reselect from dom, refresh the cache
   	 * @return {$Object}
    */
 
-  View.prototype.$ = function(selector, refresh) {
-    if (refresh) {
-      this._$cache.remove(selector);
-    }
-    return this._$cache.get(selector, ((function(_this) {
-      return function() {
-        return _this.$ele.find(selector);
-      };
-    })(this)), true);
+  View.prototype.$ = function(selector) {
+    return this.$ele.find(selector);
   };
 
 

@@ -83,6 +83,11 @@ class aJazz.Controller extends aJazz.EventDispatcher
 	###
 	catchErrors: true
 	###
+	ajax timeout
+	@type {Number}
+	###
+	timeout: 0
+	###
 	the unique controller debugger for debugging
 	@type {aJazz.ControllerDebugger}
 	###
@@ -124,6 +129,7 @@ class aJazz.Controller extends aJazz.EventDispatcher
 						headers: util.getFuncOrValue @headers, [request], @
 						data: request
 						dataType: @dataType
+						timeout: timeout
 					.done (response)=>
 						@_success response, eventAffix
 						return
@@ -381,7 +387,7 @@ aJazz.config.set
 	@return
 	###
 	"timeout": (timeout) ->
-		$.ajaxSettings.timeout = timeout
+		aJazz.Controller::timeout = timeout
 	###
 	set up useStatusCodeForError for all controllers
 	@param  {Boolean} useStatusCodeForError

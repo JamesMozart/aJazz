@@ -39,7 +39,6 @@ class aJazz.View extends aJazz.EventDispatcher
 		@_viewMap = new CacheMap()
 		@_controllerMap = new CacheMap(@options.controllers)
 		delete @options.controllers
-		@_$cache = new CacheMap()
 		@_inserted = false
 		@_domEvents = {}
 
@@ -164,6 +163,10 @@ class aJazz.View extends aJazz.EventDispatcher
 	 * @return
 	###
 	render: ->
+		# clear events and views if the view is rendered
+		if @_inserted
+			@removeEvent()
+			@removeView()
 		#generate template ,present the view as view in template
 		@$ele.html @template view: @
 		@addEvent @events
@@ -228,17 +231,12 @@ class aJazz.View extends aJazz.EventDispatcher
 			for key,value of data
 				@bindData key, value
 	###
-	 * dom selection inside the view with caching each selection
+	 * dom selection inside the view
 	 * @param  {[type]}		selector 	css selector
-	 * @param  {Boolean}	refresh 	reselect from dom, refresh the cache
 	 * @return {$Object}
 	###
-	$: (selector, refresh) ->
-		if refresh
-			@_$cache.remove selector
-		@_$cache.get selector, ( =>
-			@$ele.find selector
-		), true
+	$: (selector) ->
+		@$ele.find selector
 	###
 	 * get a child view
 	 * @param  {String} 	viewKey  	key for the child view
