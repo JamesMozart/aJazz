@@ -668,7 +668,6 @@ aJazz.Controller = (function(_super) {
     util.moveTo(this, this.options, "app");
     this._requestArgs = null;
     this.response = this.defaults;
-    this.$queue = $({});
     this["debugger"] && this["debugger"].add(this);
     this.init(options);
   }
@@ -810,28 +809,26 @@ aJazz.Controller = (function(_super) {
       if (validateResult === true) {
         this._requestArgs = args;
         this.trigger("send", request);
-        this.$queue.queue("ajax", (function(_this) {
-          return function(next) {
-            _this.ajax({
-              url: _this.dummyEnabled ? _this.dummyRoot + _this.dummyUrl : _this.apiRoot + util.getFuncOrValue(_this.url, [request], _this),
-              type: _this.dummyEnabled ? "get" : type,
-              headers: util.getFuncOrValue(_this.headers, [request], _this),
-              data: request,
-              dataType: _this.dataType,
-              timeout: timeout
-            }).done(function(response) {
-              _this._success(response, eventAffix);
-            }).fail(function(xhr, status) {
-              _this._error(xhr, status, eventAffix);
-            }).always(function(xhr, status) {
-              _this._complete(xhr, status, eventAffix);
-              next();
-            });
+        this.ajax({
+          url: this.dummyEnabled ? this.dummyRoot + this.dummyUrl : this.apiRoot + util.getFuncOrValue(this.url, [request], this),
+          type: this.dummyEnabled ? "get" : type,
+          headers: util.getFuncOrValue(this.headers, [request], this),
+          data: request,
+          dataType: this.dataType,
+          timeout: this.timeout
+        }).done((function(_this) {
+          return function(response) {
+            _this._success(response, eventAffix);
+          };
+        })(this)).fail((function(_this) {
+          return function(xhr, status) {
+            _this._error(xhr, status, eventAffix);
+          };
+        })(this)).always((function(_this) {
+          return function(xhr, status) {
+            _this._complete(xhr, status, eventAffix);
           };
         })(this));
-        if ((this.$queue.queue("ajax")).length === 1) {
-          this.$queue.dequeue("ajax");
-        }
       } else {
         eventObj = {
           status: "requestValidation"
@@ -1290,7 +1287,7 @@ aJazz.View = (function(_super) {
     this._viewMap = new CacheMap();
     this._controllerMap = new CacheMap(this.options.controllers);
     delete this.options.controllers;
-    this._inserted = false;
+    this._rendered = false;
     this._domEvents = {};
     delete this.options.controllers;
     this.init();
@@ -1475,9 +1472,11 @@ aJazz.View = (function(_super) {
    */
 
   View.prototype.render = function() {
-    if (this._inserted) {
+    if (this._rendered) {
       this.removeEvent();
       this.removeView();
+    } else {
+      this._rendered = true;
     }
     this.$ele.html(this.template({
       view: this
@@ -1730,11 +1729,8 @@ aJazz.View = (function(_super) {
     $ele = this.$ele;
     $div = div.$ele || $(div);
     $div[method]($ele);
-    if (!this._inserted) {
-      if (this.autoRender) {
-        this.render();
-      }
-      this._inserted = true;
+    if (!this._rendered && this.autoRender) {
+      this.render();
     }
   };
 

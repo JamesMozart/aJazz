@@ -26,9 +26,6 @@ class aJazz.Controller extends aJazz.EventDispatcher
 		@_requestArgs = null
 		@response = @defaults
 
-		#current pending xhr queue
-		@$queue = $ {}
-
 		@debugger && @debugger.add @
 
 		@init options
@@ -122,27 +119,23 @@ class aJazz.Controller extends aJazz.EventDispatcher
 			if validateResult == true
 				@_requestArgs = args
 				@trigger "send", request
-				@$queue.queue "ajax", (next)=>
-					@ajax
-						url: if @dummyEnabled then @dummyRoot + @dummyUrl else @apiRoot + util.getFuncOrValue @url, [request], @
-						type: if @dummyEnabled then "get" else type
-						headers: util.getFuncOrValue @headers, [request], @
-						data: request
-						dataType: @dataType
-						timeout: timeout
-					.done (response)=>
-						@_success response, eventAffix
-						return
-					.fail (xhr, status)=>
-						@_error xhr, status, eventAffix
-						return
-					.always (xhr, status)=>
-						@_complete xhr, status, eventAffix
-						next()
-						return
+
+				@ajax
+					url: if @dummyEnabled then @dummyRoot + @dummyUrl else @apiRoot + util.getFuncOrValue @url, [request], @
+					type: if @dummyEnabled then "get" else type
+					headers: util.getFuncOrValue @headers, [request], @
+					data: request
+					dataType: @dataType
+					timeout: @timeout
+				.done (response)=>
+					@_success response, eventAffix
 					return
-				if (@$queue.queue "ajax").length == 1
-					@$queue.dequeue "ajax"
+				.fail (xhr, status)=>
+					@_error xhr, status, eventAffix
+					return
+				.always (xhr, status)=>
+					@_complete xhr, status, eventAffix
+					return
 			else
 				eventObj = status: "requestValidation"
 				@trigger "error:requestValidation,error", validateResult, eventObj

@@ -39,7 +39,7 @@ class aJazz.View extends aJazz.EventDispatcher
 		@_viewMap = new CacheMap()
 		@_controllerMap = new CacheMap(@options.controllers)
 		delete @options.controllers
-		@_inserted = false
+		@_rendered = false
 		@_domEvents = {}
 
 		delete @options.controllers
@@ -164,9 +164,11 @@ class aJazz.View extends aJazz.EventDispatcher
 	###
 	render: ->
 		# clear events and views if the view is rendered
-		if @_inserted
+		if @_rendered
 			@removeEvent()
 			@removeView()
+		else
+			@_rendered = true
 		#generate template ,present the view as view in template
 		@$ele.html @template view: @
 		@addEvent @events
@@ -350,11 +352,9 @@ class aJazz.View extends aJazz.EventDispatcher
 		$ele = @$ele
 		$div = div.$ele || $ div
 		$div[method] $ele
-		if !@_inserted
-			if @autoRender
-				@render()
-			@_inserted = true
-		return
+		if !@_rendered && @autoRender
+			@render()
+			return
 	###
 	 * bind Dom events to element, events:view.events, isBind:Boolean
 	 * @param  {Object<Function>}  	events event defination object
