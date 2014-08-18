@@ -111,27 +111,28 @@ class aJazz.Controller extends aJazz.EventDispatcher
 	###
 	send: (data, type = @type, eventAffix) ->
 		args = arguments
+		xhr = null
 		#fall back to an unknow error if proccess or validate throws uncaught error
 		@_try ->
-			request = @process data
-			validateResult = @validateRequest request
+			request = @process data, eventAffix
+			validateResult = @validateRequest request, eventAffix
 
 			if validateResult == true
 				@_requestArgs = args
-				@trigger "send", request
+				@trigger "send,send:#{eventAffix}", request
 
-				@ajax
-					url: if @dummyEnabled then @dummyRoot + @dummyUrl else @apiRoot + util.getFuncOrValue @url, [request], @
+				xhr = @ajax
+					url: if @dummyEnabled then @dummyRoot + @dummyUrl else @apiRoot + util.getFuncOrValue @url, [request, eventAffix], @
 					type: if @dummyEnabled then "get" else type
-					headers: util.getFuncOrValue @headers, [request], @
+					headers: util.getFuncOrValue @headers, [request, eventAffix], @
 					data: request
 					dataType: @dataType
 					timeout: @timeout
 				.done (response)=>
-					@_success response, eventAffix
+					@_success response, eventAffix, data
 					return
 				.fail (xhr, status)=>
-					@_error xhr, status, eventAffix
+					@_error xhr, status, eventAffix, data
 					return
 				.always (xhr, status)=>
 					@_complete xhr, status, eventAffix
@@ -140,7 +141,7 @@ class aJazz.Controller extends aJazz.EventDispatcher
 				eventObj = status: "requestValidation"
 				@trigger "error:requestValidation,error", validateResult, eventObj
 			return
-		@
+		xhr
 	###
 	retry the last request
 	@return
@@ -152,15 +153,17 @@ class aJazz.Controller extends aJazz.EventDispatcher
 	###
 	process data before send
 	@param  {Object} data the unprocess request data
+	@param  {String} eventAffix request success event affix triggers success:{eventAffix} if given
 	@return {Object}      processed data
 	###
-	process: (data) -> data
+	process: (data, eventAffix) -> data
 	###
 	parse data after response
 	@param  {Object} data the unparsed response data
+	@param  {String} eventAffix request success event affix triggers success:{eventAffix} if given
 	@return {Object}      parseed data
 	###
-	parse: (data) -> data
+	parse: (data, eventAffix) -> data
 	###
 	validate the processed request data
 	@return {Boolean|Object} return true if validate passed, else return an custom error object
@@ -186,18 +189,19 @@ class aJazz.Controller extends aJazz.EventDispatcher
 	ajax success callbacks
 	@param  {Object} response ajax response data
 	@param  {String} 	eventAffix 	request success event affix triggers success:{eventAffix} if given
+	@param  {Object} request before process data when send is call
 	@return
 	###
-	_success: (response, eventAffix) ->
+	_success: (response, eventAffix, request) ->
 		@_try ->
-			data = @parse response 
-			validateResult = @validateResponse data
+			data = @parse response, eventAffix
+			validateResult = @validateResponse data, eventAffix
 
 			if validateResult == true
 				@response = data
-				@trigger "success", [data]
+				@trigger "success", [data, request]
 				if eventAffix?
-					@trigger "success:#{eventAffix}", [data]
+					@trigger "success:#{eventAffix}", [data, request]
 			else
 				eventObj = status: "responseValidation"
 				@trigger "error:responseValidation,error", validateResult, eventObj
@@ -207,9 +211,10 @@ class aJazz.Controller extends aJazz.EventDispatcher
 	ajax error callback
 	@param  {XMLHttpRequest} xhr
 	@param  {String} 		errorType	ajax error type
+	@param  {Object} request before process data when send is call
 	@return
 	###
-	_error: (xhr, status, eventAffix) ->
+	_error: (xhr, status, eventAffix, request) ->
 		response = xhr.response
 		eventObj = status: xhr.status
 		resultStatus = if @useStatusCodeForError then xhr.status else status
@@ -221,16 +226,17 @@ class aJazz.Controller extends aJazz.EventDispatcher
 			catch e
 				console.log e
 
-		@trigger "error:" + resultStatus + ",error", [response], eventObj
+		@trigger "error:" + resultStatus + ",error", [response, request], eventObj
 		if eventAffix?
-			@trigger "error:#{eventAffix}", [response], eventObj
+			@trigger "error:#{eventAffix}", [response, request], eventObj
 		return
 	###
 	ajax complete callback
 	@return
 	###
-	_complete: ->
+	_complete: (xhr, status, eventAffix)->
 		@trigger "complete"
+		@trigger "complete:#{eventAffix}"
 		return
 
 ###

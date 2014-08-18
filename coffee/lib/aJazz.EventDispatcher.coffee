@@ -98,17 +98,28 @@ class aJazz.EventDispatcher
 			eventDataArr? && eventArr = eventArr.concat eventDataArr
 
 			if eventsByKey?
-				for eventItem in eventsByKey
+				@_events[eventKey] = $.grep eventsByKey, (eventItem)=>
 					callbackContext = eventItem.callbackContext
 
 					#return false in the event listener to cancel bubble
 					result = eventItem.listner.apply(callbackContext, eventArr) != false;
-					eventItem.once && @off eventKey, callbackContext
 					if !result
 						eventObj.cancelBubble()
 						triggerResult = false
 					eventObj.bubble && callbackContext != @ && callbackContext.trigger.call callbackContext, eventKey, eventDataArr, eventObj
+
+					!eventItem.once
 		triggerResult
+	###*
+	 * bubble an event to another eventDispatcher, the bubbleTo object will listern to the event with an empty listner function
+	 * @param  {String} eventKey event type to bubble
+	 * @param  {aJazz.EventDispatcher} bubbleTo [description]
+	###
+	bubble: (eventKey, bubbleTo)->
+		@on eventKey, ->
+			return
+		, bubbleTo
+		return
 	###
 	destroy the eventDispatcher, remove all events
 	@return
@@ -123,7 +134,21 @@ class aJazz.EventDispatcher
 	###
 	getOption: (key) ->
 		if key?
-			@options[key]
+			value = @options[key]
+			if value?
+				###clone the value to prevent modifying it as object outside###
+				switch typeof value
+					when "object"
+						if value instanceof Array
+							[].concat value
+						else if value?
+							$.extend {}, value
+						else
+							null
+					else
+						value
+			else
+				null
 		else @options
 	###
 	set an option to the options object, or set the options if an object is passed

@@ -176,18 +176,23 @@ class aJazz.View extends aJazz.EventDispatcher
 	###
 	 * render the apart of view, fill in html and className
 	 * @param  {String} selector   	selector of the part to render
-	 * @param  {Boolean} append   	use append instead of replacing html
+	 * @param  {String|Function} placement   	jQuery method name to place the hmtl or custuom function
 	 * @return
 	###
-	render$: (selector, append) ->
+	render$: (selector, placement = "html") ->
 		#generate template ,present the view as view in template
 		$div = $ @template view: @
 		$renderDivs = ($div.filter selector).add $div.find selector
-		method = if append then "append" else "html"
-		(@$ selector, true).each (i)->
+		(@$ selector).each (i, ele)=>
+			$ele = $ ele
 			$renderDiv = $renderDivs.eq i
-			@.className = $renderDiv[0].className
-			($ @)[method] $renderDiv.html()
+			$ele.attr "class", $renderDiv.attr "class"
+			html = $renderDiv.html()
+			if typeof placement == "function"
+				placement.call @, $ele, html
+			else
+				$ele[placement] html
+			return
 		@
 	###
 	 * remove the view element from Dom and unbind all events
@@ -289,7 +294,7 @@ class aJazz.View extends aJazz.EventDispatcher
 			for key of bindKey
 				@bindView key, bindKey[key], view
 		else
-			$view = @$ "[_view='" + bindKey + "']", true
+			$view = @$ "[_view='" + bindKey + "']"
 			currView = $view.data "view"
 			view.afterTo $view
 			$view.removeAttr "_view"

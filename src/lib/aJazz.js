@@ -256,6 +256,43 @@ aJazz.Map = (function() {
     return this;
   };
 
+
+  /*privates */
+
+
+  /**
+  	 * convert array into object
+  	 * @param  {Array} arr   array to convert
+  	 * @param  {String} idKey	the field act as key in array item
+  	 * @return {Object}
+   */
+
+  Map.prototype._arrayToMap = function(arr, idKey) {
+    var item, objects, _i, _len;
+    if (idKey == null) {
+      idKey = "id";
+    }
+    objects = {};
+    for (_i = 0, _len = arr.length; _i < _len; _i++) {
+      item = arr[_i];
+      objects[item[idKey]] = item;
+    }
+    return objects;
+  };
+
+  Map.prototype._mapToArray = function(objects) {
+    var arr, k, v;
+    return arr = (function() {
+      var _results;
+      _results = [];
+      for (k in objects) {
+        v = objects[k];
+        _results.push(v);
+      }
+      return _results;
+    })();
+  };
+
   return Map;
 
 })();
@@ -461,7 +498,7 @@ aJazz.EventDispatcher = (function() {
    */
 
   EventDispatcher.prototype.trigger = function(eventKey, eventDataArr, eventOptions) {
-    var callbackContext, eventArr, eventItem, eventObj, eventsByKey, result, triggerResult, _i, _j, _len, _len1, _ref;
+    var eventArr, eventObj, eventsByKey, triggerResult, _i, _len, _ref;
     _ref = eventKey.split(",");
     for (_i = 0, _len = _ref.length; _i < _len; _i++) {
       eventKey = _ref[_i];
@@ -472,20 +509,33 @@ aJazz.EventDispatcher = (function() {
       eventObj.setCurrentTarget(this);
       (eventDataArr != null) && (eventArr = eventArr.concat(eventDataArr));
       if (eventsByKey != null) {
-        for (_j = 0, _len1 = eventsByKey.length; _j < _len1; _j++) {
-          eventItem = eventsByKey[_j];
-          callbackContext = eventItem.callbackContext;
-          result = eventItem.listner.apply(callbackContext, eventArr) !== false;
-          eventItem.once && this.off(eventKey, callbackContext);
-          if (!result) {
-            eventObj.cancelBubble();
-            triggerResult = false;
-          }
-          eventObj.bubble && callbackContext !== this && callbackContext.trigger.call(callbackContext, eventKey, eventDataArr, eventObj);
-        }
+        this._events[eventKey] = $.grep(eventsByKey, (function(_this) {
+          return function(eventItem) {
+            var callbackContext, result;
+            callbackContext = eventItem.callbackContext;
+            result = eventItem.listner.apply(callbackContext, eventArr) !== false;
+            if (!result) {
+              eventObj.cancelBubble();
+              triggerResult = false;
+            }
+            eventObj.bubble && callbackContext !== _this && callbackContext.trigger.call(callbackContext, eventKey, eventDataArr, eventObj);
+            return !eventItem.once;
+          };
+        })(this));
       }
     }
     return triggerResult;
+  };
+
+
+  /**
+  	 * bubble an event to another eventDispatcher, the bubbleTo object will listern to the event with an empty listner function
+  	 * @param  {String} eventKey event type to bubble
+  	 * @param  {aJazz.EventDispatcher} bubbleTo [description]
+   */
+
+  EventDispatcher.prototype.bubble = function(eventKey, bubbleTo) {
+    this.on(eventKey, function() {}, bubbleTo);
   };
 
 
@@ -506,8 +556,28 @@ aJazz.EventDispatcher = (function() {
    */
 
   EventDispatcher.prototype.getOption = function(key) {
+    var value;
     if (key != null) {
-      return this.options[key];
+      value = this.options[key];
+      if (value != null) {
+
+        /*clone the value to prevent modifying it as object outside */
+        switch (typeof value) {
+          case "object":
+            if (value instanceof Array) {
+              return [].concat(value);
+            } else if (value != null) {
+              return $.extend({}, value);
+            } else {
+              return null;
+            }
+            break;
+          default:
+            return value;
+        }
+      } else {
+        return null;
+      }
     } else {
       return this.options;
     }
@@ -797,32 +867,33 @@ aJazz.Controller = (function(_super) {
    */
 
   Controller.prototype.send = function(data, type, eventAffix) {
-    var args;
+    var args, xhr;
     if (type == null) {
       type = this.type;
     }
     args = arguments;
+    xhr = null;
     this._try(function() {
       var eventObj, request, validateResult;
-      request = this.process(data);
-      validateResult = this.validateRequest(request);
+      request = this.process(data, eventAffix);
+      validateResult = this.validateRequest(request, eventAffix);
       if (validateResult === true) {
         this._requestArgs = args;
-        this.trigger("send", request);
-        this.ajax({
-          url: this.dummyEnabled ? this.dummyRoot + this.dummyUrl : this.apiRoot + util.getFuncOrValue(this.url, [request], this),
+        this.trigger("send,send:" + eventAffix, request);
+        xhr = this.ajax({
+          url: this.dummyEnabled ? this.dummyRoot + this.dummyUrl : this.apiRoot + util.getFuncOrValue(this.url, [request, eventAffix], this),
           type: this.dummyEnabled ? "get" : type,
-          headers: util.getFuncOrValue(this.headers, [request], this),
+          headers: util.getFuncOrValue(this.headers, [request, eventAffix], this),
           data: request,
           dataType: this.dataType,
           timeout: this.timeout
         }).done((function(_this) {
           return function(response) {
-            _this._success(response, eventAffix);
+            _this._success(response, eventAffix, data);
           };
         })(this)).fail((function(_this) {
           return function(xhr, status) {
-            _this._error(xhr, status, eventAffix);
+            _this._error(xhr, status, eventAffix, data);
           };
         })(this)).always((function(_this) {
           return function(xhr, status) {
@@ -836,7 +907,7 @@ aJazz.Controller = (function(_super) {
         this.trigger("error:requestValidation,error", validateResult, eventObj);
       }
     });
-    return this;
+    return xhr;
   };
 
 
@@ -856,10 +927,11 @@ aJazz.Controller = (function(_super) {
   /*
   	process data before send
   	@param  {Object} data the unprocess request data
+  	@param  {String} eventAffix request success event affix triggers success:{eventAffix} if given
   	@return {Object}      processed data
    */
 
-  Controller.prototype.process = function(data) {
+  Controller.prototype.process = function(data, eventAffix) {
     return data;
   };
 
@@ -867,10 +939,11 @@ aJazz.Controller = (function(_super) {
   /*
   	parse data after response
   	@param  {Object} data the unparsed response data
+  	@param  {String} eventAffix request success event affix triggers success:{eventAffix} if given
   	@return {Object}      parseed data
    */
 
-  Controller.prototype.parse = function(data) {
+  Controller.prototype.parse = function(data, eventAffix) {
     return data;
   };
 
@@ -914,19 +987,20 @@ aJazz.Controller = (function(_super) {
   	ajax success callbacks
   	@param  {Object} response ajax response data
   	@param  {String} 	eventAffix 	request success event affix triggers success:{eventAffix} if given
+  	@param  {Object} request before process data when send is call
   	@return
    */
 
-  Controller.prototype._success = function(response, eventAffix) {
+  Controller.prototype._success = function(response, eventAffix, request) {
     this._try(function() {
       var data, eventObj, validateResult;
-      data = this.parse(response);
-      validateResult = this.validateResponse(data);
+      data = this.parse(response, eventAffix);
+      validateResult = this.validateResponse(data, eventAffix);
       if (validateResult === true) {
         this.response = data;
-        this.trigger("success", [data]);
+        this.trigger("success", [data, request]);
         if (eventAffix != null) {
-          this.trigger("success:" + eventAffix, [data]);
+          this.trigger("success:" + eventAffix, [data, request]);
         }
       } else {
         eventObj = {
@@ -942,10 +1016,11 @@ aJazz.Controller = (function(_super) {
   	ajax error callback
   	@param  {XMLHttpRequest} xhr
   	@param  {String} 		errorType	ajax error type
+  	@param  {Object} request before process data when send is call
   	@return
    */
 
-  Controller.prototype._error = function(xhr, status, eventAffix) {
+  Controller.prototype._error = function(xhr, status, eventAffix, request) {
     var e, eventObj, response, resultStatus;
     response = xhr.response;
     eventObj = {
@@ -960,9 +1035,9 @@ aJazz.Controller = (function(_super) {
         console.log(e);
       }
     }
-    this.trigger("error:" + resultStatus + ",error", [response], eventObj);
+    this.trigger("error:" + resultStatus + ",error", [response, request], eventObj);
     if (eventAffix != null) {
-      this.trigger("error:" + eventAffix, [response], eventObj);
+      this.trigger("error:" + eventAffix, [response, request], eventObj);
     }
   };
 
@@ -972,8 +1047,9 @@ aJazz.Controller = (function(_super) {
   	@return
    */
 
-  Controller.prototype._complete = function() {
+  Controller.prototype._complete = function(xhr, status, eventAffix) {
     this.trigger("complete");
+    this.trigger("complete:" + eventAffix);
   };
 
   return Controller;
@@ -1489,23 +1565,33 @@ aJazz.View = (function(_super) {
   /*
   	 * render the apart of view, fill in html and className
   	 * @param  {String} selector   	selector of the part to render
-  	 * @param  {Boolean} append   	use append instead of replacing html
+  	 * @param  {String|Function} placement   	jQuery method name to place the hmtl or custuom function
   	 * @return
    */
 
-  View.prototype.render$ = function(selector, append) {
-    var $div, $renderDivs, method;
+  View.prototype.render$ = function(selector, placement) {
+    var $div, $renderDivs;
+    if (placement == null) {
+      placement = "html";
+    }
     $div = $(this.template({
       view: this
     }));
     $renderDivs = ($div.filter(selector)).add($div.find(selector));
-    method = append ? "append" : "html";
-    (this.$(selector, true)).each(function(i) {
-      var $renderDiv;
-      $renderDiv = $renderDivs.eq(i);
-      this.className = $renderDiv[0].className;
-      return ($(this))[method]($renderDiv.html());
-    });
+    (this.$(selector)).each((function(_this) {
+      return function(i, ele) {
+        var $ele, $renderDiv, html;
+        $ele = $(ele);
+        $renderDiv = $renderDivs.eq(i);
+        $ele.attr("class", $renderDiv.attr("class"));
+        html = $renderDiv.html();
+        if (typeof placement === "function") {
+          placement.call(_this, $ele, html);
+        } else {
+          $ele[placement](html);
+        }
+      };
+    })(this));
     return this;
   };
 
@@ -1639,7 +1725,7 @@ aJazz.View = (function(_super) {
         this.bindView(key, bindKey[key], view);
       }
     } else {
-      $view = this.$("[_view='" + bindKey + "']", true);
+      $view = this.$("[_view='" + bindKey + "']");
       currView = $view.data("view");
       view.afterTo($view);
       $view.removeAttr("_view");

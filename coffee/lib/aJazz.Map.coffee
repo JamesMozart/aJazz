@@ -85,6 +85,21 @@ class aJazz.Map
 		objects = @objects
 		func.call @, id, item for id, item of objects
 		@
+	###privates###
+	###*
+	 * convert array into object
+	 * @param  {Array} arr   array to convert
+	 * @param  {String} idKey	the field act as key in array item
+	 * @return {Object}
+	###
+	_arrayToMap: (arr, idKey = "id")->
+		objects = {}
+		for item in arr
+			objects[item[idKey]] = item
+		objects
+	_mapToArray: (objects)->
+		arr = for k, v of objects
+			v
 
 ###
 httpCacheMap class
